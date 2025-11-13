@@ -68,5 +68,5 @@ PLATFORM_CONFIG = {
             "Location": "Location",
             "Tally Warehouse Name": "Tally Warehouse Name"
         }
-    }
+    },
 }
