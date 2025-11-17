@@ -452,7 +452,9 @@ def check_date_range_compatibility(main_df, second_bytes):
             dates = pd.Series([pd.NaT] * len(main_df), index=main_df.index)
 
         # mark out-of-range only for rows that have a valid date
-        out_mask = dates.notna() & ((dates < pd.Timestamp(second_start)) | (dates > pd.Timestamp(second_end)))
+        dates_only = dates.dt.date
+        out_mask = dates_only.notna() & ((dates_only < second_start) | (dates_only > second_end))
+
         out_flag_df[col] = out_mask
 
         for idx in out_mask[out_mask].index:
@@ -677,6 +679,19 @@ def run_pipeline(require_containment=False, block_if_out_of_range=False):
     if main_df is None:
         st.error("❌ Could not read the Main Excel file (selected sheet). Check file format/headers.")
         return
+    
+    # ------------------------------------------------------------------
+    # FIX: EasyEcom main file sometimes has duplicate 'Location' columns.
+    # Rename the real 'Location' column to 'Location Warehouse'
+    # ------------------------------------------------------------------
+    if platform == "Easy Ecom":
+        true_location_cols = [c for c in main_df.columns if _normalize_name(c) == "location"]
+        if len(true_location_cols) >= 1:
+            # Rename ONLY the column literally named "Location"
+            if "Location" in main_df.columns:
+                main_df.rename(columns={"Location": "Location Warehouse"}, inplace=True)
+                st.info("🔧 Renamed EasyEcom main column 'Location' → 'Location Warehouse' to avoid conflicts.")
+
 
     # Normalize / ensure MSKU / Location (platform-aware)
     col_map = PLATFORM_CONFIG[platform]["column_map"]
@@ -684,6 +699,37 @@ def run_pipeline(require_containment=False, block_if_out_of_range=False):
     main_df = ensure_msku(main_df, col_map)
     main_df = move_msku_first(main_df)
     # If platform defines Location alias in column_map, it was handled above.
+
+    # ----------- EASYECOM SUM LOGIC (FIXED) ---------------
+    if platform == "Easy Ecom":
+        sum_cols = PLATFORM_CONFIG["Easy Ecom"].get("sum_columns", [])
+
+        # Normalize dataframe column names once
+        normalized_df_cols = {_normalize_name(c): c for c in main_df.columns}
+
+        # Normalize config column names
+        normalized_sum_cols = [_normalize_name(c) for c in sum_cols]
+
+        # Find actual matching column names in the dataframe
+        existing = [
+            normalized_df_cols[n] 
+            for n in normalized_sum_cols 
+            if n in normalized_df_cols
+        ]
+
+        if existing:
+            st.info(f"EasyEcom Sum Columns Found: {existing}")
+
+            main_df["Ending Warehouse Balance"] = (
+                main_df[existing]
+                .apply(pd.to_numeric, errors="coerce")
+                .sum(axis=1)
+            )
+        else:
+            st.warning("⚠ EasyEcom required sum columns NOT found in main file.")
+    # -------------------------------------------------------
+
+
 
     # Step 2: filter main by user-selected date range (if set)
     status_text.text(steps[1])
@@ -722,6 +768,8 @@ def run_pipeline(require_containment=False, block_if_out_of_range=False):
     status_text.text(steps[3])
     progress_bar.progress(0.50)
     filtered_main, tally = apply_mapping_and_filter(main_df, wh)
+
+    
     if filtered_main is None:
         st.error("❌ Mapping/warehouse filtering failed. Ensure platform Mapping is present and 'Location' exists in main file (after normalization).")
         return

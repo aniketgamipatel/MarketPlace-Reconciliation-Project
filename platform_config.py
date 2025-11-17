@@ -41,7 +41,7 @@ PLATFORM_CONFIG = {
         }
     },
 
-    "Myntra": {
+    "Myntra SJIT": {
         "mapping_sheet_id": "1ATdC34qsLz6_ZmLT-aDSWVoXoDKBxcKDfBN_w251Fm0",
         "mapping_sheet_name": "Mapping",
         "column_map": {
@@ -56,17 +56,18 @@ PLATFORM_CONFIG = {
     },
 
 
-    "EasyEcom": {
+    "Easy Ecom": {
         "mapping_sheet_id": "1ATdC34qsLz6_ZmLT-aDSWVoXoDKBxcKDfBN_w251Fm0",
         "mapping_sheet_name": "Mapping",
         "column_map": {
             "MSKU": "SKU",
-            "Ending Warehouse Balance": "Total Qty",
-            "Location": "Location"  
+            "Ending Warehouse Balance": "",
+            "Location": "Company Token"
         },
         "mapping_column_map": {
             "Location": "Location",
             "Tally Warehouse Name": "Tally Warehouse Name"
-        }
+        },
+        "sum_columns": ["Reserved (Not Picked)", "Reserved (Picked)", "Available Quantity","Available Quantity (Bin Locked)" ,"QC Passed"]
     },
 }
